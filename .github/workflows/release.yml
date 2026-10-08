@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  pypi:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+    permissions:
+      contents: read
+      id-token: write  # trusted publishing to PyPI
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          enable-cache: false
+          version: "latest"
+          python-version: "3.12"
+
+      - name: Set version from tag
+        run: |
+          set -euxo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          sed -i "s/^version = .*/version = \"${version}\"/" pyproject.toml
+          sed -i "s/^__version__ = .*/__version__ = \"${version}\"/" src/scrubdaddy/__init__.py
+          echo "Building scrubdaddy ${version}"
+
+      - name: Check the version is consistent
+        run: uv run pytest tests/test_version.py
+
+      - name: Build sdist and wheel
+        run: |
+          set -euxo pipefail
+          uv build
+          ls -l dist
+
+      - name: Publish
+        run: uv publish --trusted-publishing always

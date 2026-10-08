@@ -1,0 +1,89 @@
+[project]
+name = "scrubdaddy"
+version = "0.1.0"
+description = "Find and remove personally identifiable information from text."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Dmitry Anfimov", email = "lovesolaristics@gmail.com" }
+]
+keywords = ["pii", "anonymization", "redaction", "privacy", "gdpr"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Text Processing",
+    "Topic :: Security",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.optional-dependencies]
+phone = ["phonenumbers>=8.13"]
+dates = ["dateparser>=1.2"]
+
+[project.scripts]
+scrubdaddy = "scrubdaddy.cli:main"
+
+[project.entry-points."scrubdaddy.detectors"]
+# Other packages advertise detectors here; this section documents the group.
+
+[project.urls]
+Repository = "https://github.com/danfimov/scrubdaddy"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "mypy>=1.13",
+    "ruff>=0.14",
+    "phonenumbers>=9.0.40",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.16,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "ALL",
+]
+ignore = [
+    "ANN401",
+    "S101",
+    "CPY001",
+    "D",
+    # These three exist to push every flag and option into keyword-only
+    # arguments, which this project deliberately does not do.
+    "FBT001",
+    "FBT002",
+    "PLR0917",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ANN", "S105", "S106", "PLR2004", "S101"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+disallow_any_explicit = false
+files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers --strict-config"
+
+[tool.coverage.run]
+source = ["src/scrubdaddy"]
