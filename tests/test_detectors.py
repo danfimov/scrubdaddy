@@ -28,6 +28,10 @@ def found(detector: type[Detector], text: str) -> list[str]:
         ("joe@.com", []),
         ("@example.com", []),
         ("joe@example..com", []),
+        ("password=hunter2&email=joe@example.com", ["joe@example.com"]),
+        ("?utm=1&mail=kim.smith+tag@example.com", ["kim.smith+tag@example.com"]),
+        ("a=b@example.com", ["b@example.com"]),
+        ("path/to/joe@example.com", ["joe@example.com"]),
     ],
 )
 def test_email(text, expected):
@@ -132,15 +136,48 @@ def test_secret_leaves_ordinary_text_alone(text):
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
+        # a configuration line or a form body
         ("password: hunter2", ["hunter2"]),
         ("password=hunter2", ["hunter2"]),
         ("PWD: hunter2", ["hunter2"]),
-        ('api_key: "abc123"', ["abc123"]),
         ("token = abc123", ["abc123"]),
-        ("password: REDACTED", []),
+        ("password=hunter2&email=joe@example.com", ["hunter2"]),
+        # a JSON request body, where both the label and the value are quoted
+        ('{"password": "hunter2"}', ["hunter2"]),
+        ('{"passwd": "hunter2"}', ["hunter2"]),
+        ('{"pwd": "hunter2"}', ["hunter2"]),
+        ('{"secret":"hunter2"}', ["hunter2"]),
+        ('{"api_key": "hunter2"}', ["hunter2"]),
+        ('{"PASSWORD": "hunter2"}', ["hunter2"]),
+        ('{\n  "password": "hunter 2 with spaces"\n}', ["hunter 2 with spaces"]),
+        # a label built around the word
+        ('{"new_password": "hunter2"}', ["hunter2"]),
+        ('{"password_confirmation": "hunter2"}', ["hunter2"]),
+        ('{"user-token": "hunter2"}', ["hunter2"]),
+        # other shapes the same thing is written in
+        ("'password' => 'hunter2'", ["hunter2"]),
+        ('{"password" : "hunter2"}', ["hunter2"]),
+        # placeholders and prose
+        ('{"password": "REDACTED"}', []),
         ("password: none", []),
         ("just the word password", []),
+        ("Boarding pass number", []),
     ],
 )
 def test_password_reports_only_the_value(text, expected):
     assert found(PasswordDetector, text) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "untouched"),
+    [
+        ('{"user": "joe", "password": "hunter2"}', '"user": "joe"'),
+        ('{"password": "hunter2", "email": "joe@example.com"}', '"email": "joe@example.com"'),
+        ("password=hunter2&email=joe@example.com", "email=joe@example.com"),
+    ],
+)
+def test_one_field_does_not_swallow_the_rest_of_the_body(text, untouched):
+    detector = PasswordDetector()
+    findings = list(detector.find(text))
+    assert len(findings) == 1
+    assert untouched not in findings[0].text
